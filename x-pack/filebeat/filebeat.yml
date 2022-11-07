@@ -18,41 +18,48 @@ filebeat.inputs:
 # you can use different inputs for various configurations.
 # Below are the input specific configurations.
 
+- type: ea_azure
+  id: azure-1
+  enabled: true
+  client_id: CLIENT_ID
+  tenant_id: TENANT_ID
+  secret: 
+
 # filestream is an input for collecting log messages from files.
-- type: filestream
-
-  # Unique ID among all inputs, an ID is required.
-  id: my-filestream-id
-
-  # Change to true to enable this input configuration.
-  enabled: false
-
-  # Paths that should be crawled and fetched. Glob based paths.
-  paths:
-    - /var/log/*.log
-    #- c:\programdata\elasticsearch\logs\*
-
-  # Exclude lines. A list of regular expressions to match. It drops the lines that are
-  # matching any regular expression from the list.
-  # Line filtering happens after the parsers pipeline. If you would like to filter lines
-  # before parsers, use include_message parser.
-  #exclude_lines: ['^DBG']
-
-  # Include lines. A list of regular expressions to match. It exports the lines that are
-  # matching any regular expression from the list.
-  # Line filtering happens after the parsers pipeline. If you would like to filter lines
-  # before parsers, use include_message parser.
-  #include_lines: ['^ERR', '^WARN']
-
-  # Exclude files. A list of regular expressions to match. Filebeat drops the files that
-  # are matching any regular expression from the list. By default, no files are dropped.
-  #prospector.scanner.exclude_files: ['.gz$']
-
-  # Optional additional fields. These fields can be freely picked
-  # to add additional information to the crawled log files for filtering
-  #fields:
-  #  level: debug
-  #  review: 1
+#- type: filestream
+#
+#  # Unique ID among all inputs, an ID is required.
+#  id: my-filestream-id
+#
+#  # Change to true to enable this input configuration.
+#  enabled: false
+#
+#  # Paths that should be crawled and fetched. Glob based paths.
+#  paths:
+#    - /var/log/*.log
+#    #- c:\programdata\elasticsearch\logs\*
+#
+#  # Exclude lines. A list of regular expressions to match. It drops the lines that are
+#  # matching any regular expression from the list.
+#  # Line filtering happens after the parsers pipeline. If you would like to filter lines
+#  # before parsers, use include_message parser.
+#  #exclude_lines: ['^DBG']
+#
+#  # Include lines. A list of regular expressions to match. It exports the lines that are
+#  # matching any regular expression from the list.
+#  # Line filtering happens after the parsers pipeline. If you would like to filter lines
+#  # before parsers, use include_message parser.
+#  #include_lines: ['^ERR', '^WARN']
+#
+#  # Exclude files. A list of regular expressions to match. Filebeat drops the files that
+#  # are matching any regular expression from the list. By default, no files are dropped.
+#  #prospector.scanner.exclude_files: ['.gz$']
+#
+#  # Optional additional fields. These fields can be freely picked
+#  # to add additional information to the crawled log files for filtering
+#  #fields:
+#  #  level: debug
+#  #  review: 1
 
 # ============================== Filebeat modules ==============================
 
@@ -141,12 +148,13 @@ output.elasticsearch:
   hosts: ["localhost:9200"]
 
   # Protocol - either `http` (default) or `https`.
-  #protocol: "https"
+  protocol: "https"
+  ssl.verification_mode: "none"
 
   # Authentication credentials - either API key or username/password.
   #api_key: "id:api_key"
-  #username: "elastic"
-  #password: "changeme"
+  username: "elastic"
+  password: "changeme"
 
 # ------------------------------ Logstash Output -------------------------------
 #output.logstash:
