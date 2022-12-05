@@ -34,6 +34,7 @@ func (a *azure) doFetch(ctx context.Context, state *stateStore) (*collections.Se
 		return nil, err
 	}
 	a.logger.Debugf("Got %d users from API", len(changedUsers))
+
 	// Get group changes.
 	changedGroups, groupLink, err := a.getGroups(ctx, c, state)
 	if err != nil {
@@ -116,9 +117,12 @@ func (a *azure) getUsers(ctx context.Context, c *http.Client, state *stateStore)
 		var response apiResponse
 
 		body, err := a.doRequest(ctx, c, http.MethodGet, fetchURL, nil)
+		a.metrics.usersAPICallsTotal.Inc()
 		if err != nil {
+			a.metrics.usersAPICallsFailure.Inc()
 			return nil, "", fmt.Errorf("unable to fetch users: %v", err)
 		}
+		a.metrics.usersAPICallsSuccess.Inc()
 
 		dec := json.NewDecoder(body)
 		if err = dec.Decode(&response); err != nil {
@@ -168,9 +172,12 @@ func (a *azure) getGroups(ctx context.Context, c *http.Client, state *stateStore
 		var response apiResponse
 
 		body, err := a.doRequest(ctx, c, http.MethodGet, fetchURL, nil)
+		a.metrics.groupsAPICallsTotal.Inc()
 		if err != nil {
+			a.metrics.groupsAPICallsFailure.Inc()
 			return nil, "", fmt.Errorf("unable to fetch groups: %v", err)
 		}
+		a.metrics.groupsAPICallsSuccess.Inc()
 
 		dec := json.NewDecoder(body)
 		if err = dec.Decode(&response); err != nil {

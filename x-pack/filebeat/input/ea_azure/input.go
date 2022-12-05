@@ -5,6 +5,7 @@ package ea_azure
 import (
 	"context"
 	"fmt"
+	"github.com/elastic/elastic-agent-libs/monitoring"
 	"time"
 
 	"github.com/elastic/elastic-agent-libs/config"
@@ -45,8 +46,8 @@ func (a *azure) Test(testCtx v2.TestContext, source kvstore.Source) error {
 func (a *azure) Run(inputCtx v2.Context, source kvstore.Source, store *kvstore.Store, client beat.Client) error {
 	streamCfg := source.(*stream)
 	a.logger = inputCtx.Logger.With("tenant_id", streamCfg.tenantID)
-	//metricRegistry := monitoring.GetNamespace("dataset").GetRegistry()
-	//m := newMetrics(metricRegistry, inputCtx.ID)
+	metricRegistry := monitoring.GetNamespace("dataset").GetRegistry()
+	a.metrics = newMetrics(metricRegistry, inputCtx.ID)
 
 	// Configure initial timers.
 	lastSyncTime, _ := getLastSync(store)
@@ -72,12 +73,20 @@ func (a *azure) Run(inputCtx v2.Context, source kvstore.Source, store *kvstore.S
 		case <-syncTimer.C:
 			if err := a.runFullSync(inputCtx, store, client); err != nil {
 				a.logger.Errorf("Error running full sync: %v", err)
+				a.metrics.fullSyncFailure.Inc()
+			} else {
+				a.metrics.fullSyncSuccess.Inc()
 			}
+			a.metrics.fullSyncTotal.Inc()
 			updateTimer.Reset(a.conf.SyncInterval)
 		case <-updateTimer.C:
 			if err := a.runIncrementalUpdate(inputCtx, store, client); err != nil {
 				a.logger.Errorf("Error running incremental update: %v", err)
+				a.metrics.incrementalUpdateFailure.Inc()
+			} else {
+				a.metrics.incrementalUpdateSuccess.Inc()
 			}
+			a.metrics.incrementalUpdateTotal.Inc()
 			updateTimer.Reset(a.conf.UpdateInterval)
 		}
 	}
