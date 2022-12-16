@@ -32,8 +32,8 @@ type stateStore struct {
 	lastUpdate    time.Time
 	usersLink     string
 	groupsLink    string
-	users         map[uuid.UUID]*user
-	groups        map[uuid.UUID]*group
+	users         map[uuid.UUID]*User
+	groups        map[uuid.UUID]*Group
 	relationships *collections.Tree[uuid.UUID]
 }
 
@@ -44,8 +44,8 @@ func newStateStore(store *kvstore.Store) (*stateStore, error) {
 	}
 
 	s := stateStore{
-		users:         map[uuid.UUID]*user{},
-		groups:        map[uuid.UUID]*group{},
+		users:         map[uuid.UUID]*User{},
+		groups:        map[uuid.UUID]*Group{},
 		relationships: collections.NewTree[uuid.UUID](),
 		tx:            tx,
 	}
@@ -64,7 +64,7 @@ func newStateStore(store *kvstore.Store) (*stateStore, error) {
 	}
 
 	if err = s.tx.ForEach(usersBucket, func(key, value []byte) error {
-		var u user
+		var u User
 		if err = json.Unmarshal(value, &u); err != nil {
 			return fmt.Errorf("unable to unmarshal user from state: %w", err)
 		}
@@ -76,7 +76,7 @@ func newStateStore(store *kvstore.Store) (*stateStore, error) {
 	}
 
 	if err = s.tx.ForEach(groupsBucket, func(key, value []byte) error {
-		var g group
+		var g Group
 		if err = json.Unmarshal(value, &g); err != nil {
 			return fmt.Errorf("unable to unmarshal group from state: %w", err)
 		}
@@ -94,15 +94,18 @@ func newStateStore(store *kvstore.Store) (*stateStore, error) {
 	return &s, nil
 }
 
-func (s *stateStore) storeUser(u *user) {
+func (s *stateStore) storeUser(u *User) {
 	if existing, ok := s.users[u.ID]; ok {
-		existing.merge(u)
+		u.Modified = true
+		existing.Merge(u)
 	} else {
+		u.Added = true
 		s.users[u.ID] = u
+
 	}
 }
 
-func (s *stateStore) storeGroup(g *group) {
+func (s *stateStore) storeGroup(g *Group) {
 	s.groups[g.ID] = g
 }
 

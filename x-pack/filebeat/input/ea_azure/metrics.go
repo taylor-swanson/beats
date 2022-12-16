@@ -6,12 +6,6 @@ type inputMetrics struct {
 	id       string
 	registry *monitoring.Registry
 
-	usersAPICallsTotal       *monitoring.Uint
-	usersAPICallsSuccess     *monitoring.Uint
-	usersAPICallsFailure     *monitoring.Uint
-	groupsAPICallsTotal      *monitoring.Uint
-	groupsAPICallsSuccess    *monitoring.Uint
-	groupsAPICallsFailure    *monitoring.Uint
 	fullSyncTotal            *monitoring.Uint
 	fullSyncSuccess          *monitoring.Uint
 	fullSyncFailure          *monitoring.Uint
@@ -33,12 +27,6 @@ func newMetrics(registry *monitoring.Registry, id string) *inputMetrics {
 	m := inputMetrics{
 		id:                       id,
 		registry:                 registry,
-		usersAPICallsTotal:       monitoring.NewUint(reg, "api_calls.users.total"),
-		usersAPICallsSuccess:     monitoring.NewUint(reg, "api_calls.users.success"),
-		usersAPICallsFailure:     monitoring.NewUint(reg, "api_calls.users.failure"),
-		groupsAPICallsTotal:      monitoring.NewUint(reg, "api_calls.groups.total"),
-		groupsAPICallsSuccess:    monitoring.NewUint(reg, "api_calls.groups.success"),
-		groupsAPICallsFailure:    monitoring.NewUint(reg, "api_calls.groups.failure"),
 		fullSyncTotal:            monitoring.NewUint(reg, "sync.full.total"),
 		fullSyncSuccess:          monitoring.NewUint(reg, "sync.full.success"),
 		fullSyncFailure:          monitoring.NewUint(reg, "sync.full.failure"),

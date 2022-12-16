@@ -5,12 +5,12 @@ package ea_azure
 import (
 	"context"
 	"fmt"
-	"github.com/elastic/elastic-agent-libs/monitoring"
 	"time"
 
 	"github.com/elastic/elastic-agent-libs/config"
 	"github.com/elastic/elastic-agent-libs/logp"
 	"github.com/elastic/elastic-agent-libs/mapstr"
+	"github.com/elastic/elastic-agent-libs/monitoring"
 	"github.com/elastic/go-concert/ctxtool"
 	"github.com/google/uuid"
 
@@ -18,6 +18,7 @@ import (
 	kvstore "github.com/elastic/beats/v7/filebeat/input/v2/input-kvstore"
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/feature"
+	"github.com/elastic/beats/v7/x-pack/libbeat/common/collections"
 )
 
 const Name = "ea_azure"
@@ -27,12 +28,11 @@ var _ kvstore.Input = &azure{}
 // azure implements an input for collecting, processing, and submitting user
 // entity objects for Entity Analytics.
 type azure struct {
+	rawConf *config.C
 	conf    conf
+	fetcher Fetcher
 	metrics *inputMetrics
 	logger  *logp.Logger
-
-	_authToken   string
-	tokenExpires time.Time
 }
 
 // Test checks the configuration and runs additional checks if this input can
@@ -49,6 +49,15 @@ func (a *azure) Run(inputCtx v2.Context, source kvstore.Source, store *kvstore.S
 	metricRegistry := monitoring.GetNamespace("dataset").GetRegistry()
 	a.metrics = newMetrics(metricRegistry, inputCtx.ID)
 
+	auth, err := newAuthOAuth2(a.rawConf, a.logger)
+	if err != nil {
+		return fmt.Errorf("unable to create authenticator: %w", err)
+	}
+	a.fetcher, err = newFetcherGraph(a.rawConf, a.logger, auth)
+	if err != nil {
+		return fmt.Errorf("unable to create fetcher: %w", err)
+	}
+
 	// Configure initial timers.
 	lastSyncTime, _ := getLastSync(store)
 	lastUpdateTime, _ := getLastSync(store)
@@ -59,6 +68,8 @@ func (a *azure) Run(inputCtx v2.Context, source kvstore.Source, store *kvstore.S
 	if lastSyncTime.IsZero() {
 		updateWaitTime = a.conf.UpdateInterval
 	}
+
+	a.logger.Debugf("Initial syncWaitTime: %v updateWaitTime: %v", syncWaitTime, updateWaitTime)
 
 	syncTimer := time.NewTimer(syncWaitTime)
 	updateTimer := time.NewTimer(updateWaitTime)
@@ -179,16 +190,98 @@ func (a *azure) runIncrementalUpdate(inputCtx v2.Context, store *kvstore.Store, 
 	return nil
 }
 
-func (a *azure) publishUser(u *user, state *stateStore, inputID string, client beat.Client, tracker *kvstore.TxTracker) {
+func (a *azure) doFetch(ctx context.Context, state *stateStore) (*collections.Set[uuid.UUID], error) {
+	updatedUsers := collections.NewSet[uuid.UUID]()
+
+	// Get user changes.
+	changedUsers, userLink, err := a.fetcher.Users(ctx, state.usersLink)
+	if err != nil {
+		return nil, err
+	}
+	a.logger.Debugf("Got %d users from API", len(changedUsers))
+
+	// Get group changes.
+	changedGroups, groupLink, err := a.fetcher.Groups(ctx, state.groupsLink)
+	if err != nil {
+		return nil, err
+	}
+	a.logger.Debugf("Got %d groups from API", len(changedGroups))
+
+	state.usersLink = userLink
+	state.groupsLink = groupLink
+
+	for _, v := range changedUsers {
+		updatedUsers.Add(v.ID)
+		state.storeUser(v)
+	}
+	for _, v := range changedGroups {
+		state.storeGroup(v)
+	}
+
+	// Populate group relationships tree.
+	for _, g := range changedGroups {
+		state.relationships.AddVertex(g.ID)
+		for _, member := range g.Members {
+			switch member.Type {
+			case MemberGroup:
+				for _, u := range state.users {
+					if u.IsTransitiveMemberOf(member.ID) {
+						updatedUsers.Add(u.ID)
+					}
+				}
+				if member.Deleted {
+					state.relationships.DeleteEdge(member.ID, g.ID)
+				} else {
+					state.relationships.AddEdge(member.ID, g.ID)
+				}
+
+			case MemberUser:
+				if u, ok := state.users[member.ID]; ok {
+					updatedUsers.Add(u.ID)
+					if member.Deleted {
+						u.RemoveMemberOf(g.ID)
+					} else {
+						u.AddMemberOf(g.ID)
+					}
+				}
+			}
+		}
+	}
+
+	// Expand user group memberships.
+	updatedUsers.ForEach(func(userID uuid.UUID) {
+		u, ok := state.users[userID]
+		if !ok {
+			a.logger.Errorf("Unable to find user %q in state", userID)
+			return
+		}
+		if u.Deleted {
+			return
+		}
+
+		u.TransitiveMemberOf = state.relationships.ExpandFromSet(u.MemberOf)
+	})
+
+	return updatedUsers, nil
+}
+
+func (a *azure) publishUser(u *User, state *stateStore, inputID string, client beat.Client, tracker *kvstore.TxTracker) {
 	userDoc := mapstr.M{}
 
 	_, _ = userDoc.Put("azure_ad", u.Fields)
 	_, _ = userDoc.Put("ecs.version", "8.5.0")
+	_, _ = userDoc.Put("event.kind", "state")
 	_, _ = userDoc.Put("event.provider", "Azure AD")
 	_, _ = userDoc.Put("event.type", "user")
 	_, _ = userDoc.Put("labels.identity_source", inputID)
+	_, _ = userDoc.Put("user.id", u.ID.String())
+
 	if u.Deleted {
 		_, _ = userDoc.Put("event.action", "user-deleted")
+	} else if u.Added {
+		_, _ = userDoc.Put("event.action", "user-added") // TODO: This doesn't clearly distinguish a newly discovered user versus a user that was added
+	} else if u.Modified {
+		_, _ = userDoc.Put("event.action", "user-modified")
 	}
 
 	var groups []groupECS
@@ -214,30 +307,16 @@ func (a *azure) publishUser(u *user, state *stateStore, inputID string, client b
 	client.Publish(event)
 }
 
-// newAzure creates a new azure input instance from the provided configuration.
-func newAzure(conf conf) (*azure, error) {
-	a := azure{
-		conf: conf,
-	}
-
-	return &a, nil
-}
-
 func configure(cfg *config.C) (kvstore.Input, []kvstore.Source, error) {
 	c := defaultConf()
 	if err := cfg.Unpack(&c); err != nil {
 		return nil, nil, fmt.Errorf("unable to unpack %s input config: %w", Name, err)
 	}
 
-	a, err := newAzure(c)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create %s input instance: %w", Name, err)
-	}
-
 	var sources []kvstore.Source
 	sources = append(sources, &stream{tenantID: c.TenantID})
 
-	return a, sources, nil
+	return &azure{conf: c}, sources, nil
 }
 
 // Plugin describes the type of this input.
@@ -266,11 +345,11 @@ func (s *stream) Name() string {
 
 func computeWaitTime(last time.Time, duration time.Duration) time.Duration {
 	if last.IsZero() {
-		return time.Nanosecond
+		return 0
 	}
 	waitTime := last.Add(duration).Sub(time.Now())
 	if waitTime <= 0 {
-		return time.Nanosecond
+		return 0
 	}
 
 	return waitTime

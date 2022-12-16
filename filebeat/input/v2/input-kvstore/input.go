@@ -5,6 +5,7 @@ package kvstore
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"runtime/debug"
 	"time"
 
@@ -108,7 +109,8 @@ func (n *input) runSource(inputCtx v2.Context, source Source, connector beat.Pip
 	})
 
 	// TODO: Get data directory.
-	store, err := NewStore(inputCtx.Logger, inputCtx.ID+".db", 0600)
+	filename := filepath.Join("data/registry/filebeat", inputCtx.ID+".db")
+	store, err := NewStore(inputCtx.Logger, filename, 0600)
 	if err != nil {
 		return err
 	}

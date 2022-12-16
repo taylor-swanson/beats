@@ -88,6 +88,24 @@ func (s *Set[T]) ForEach(fn func(elem T)) {
 	}
 }
 
+// TODO: Remove?
+func (s *Set[T]) Equal(other *Set[T]) bool {
+	if s == nil || other == nil {
+		return false
+	}
+	if s.Len() != other.Len() {
+		return false
+	}
+
+	for k := range s.m {
+		if _, ok := other.m[k]; !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
 // NewSet creates a new Set of type T. Values to add immediately may be provided.
 func NewSet[T comparable](values ...T) *Set[T] {
 	s := Set[T]{m: map[T]struct{}{}}
