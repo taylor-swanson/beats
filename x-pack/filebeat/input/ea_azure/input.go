@@ -5,6 +5,7 @@ package ea_azure
 import (
 	"context"
 	"fmt"
+
 	"time"
 
 	"github.com/elastic/elastic-agent-libs/config"
@@ -18,6 +19,9 @@ import (
 	kvstore "github.com/elastic/beats/v7/filebeat/input/v2/input-kvstore"
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/beats/v7/libbeat/feature"
+	"github.com/elastic/beats/v7/x-pack/filebeat/input/ea_azure/authenticator/oauth2"
+	"github.com/elastic/beats/v7/x-pack/filebeat/input/ea_azure/fetcher"
+	"github.com/elastic/beats/v7/x-pack/filebeat/input/ea_azure/fetcher/graph"
 	"github.com/elastic/beats/v7/x-pack/libbeat/common/collections"
 )
 
@@ -30,7 +34,7 @@ var _ kvstore.Input = &azure{}
 type azure struct {
 	rawConf *config.C
 	conf    conf
-	fetcher Fetcher
+	fetcher fetcher.Fetcher
 	metrics *inputMetrics
 	logger  *logp.Logger
 }
@@ -49,11 +53,11 @@ func (a *azure) Run(inputCtx v2.Context, source kvstore.Source, store *kvstore.S
 	metricRegistry := monitoring.GetNamespace("dataset").GetRegistry()
 	a.metrics = newMetrics(metricRegistry, inputCtx.ID)
 
-	auth, err := newAuthOAuth2(a.rawConf, a.logger)
+	auth, err := oauth2.New(a.rawConf, a.logger)
 	if err != nil {
 		return fmt.Errorf("unable to create authenticator: %w", err)
 	}
-	a.fetcher, err = newFetcherGraph(a.rawConf, a.logger, auth)
+	a.fetcher, err = graph.New(a.rawConf, a.logger, auth)
 	if err != nil {
 		return fmt.Errorf("unable to create fetcher: %w", err)
 	}
@@ -125,7 +129,7 @@ func (a *azure) runFullSync(inputCtx v2.Context, store *kvstore.Store, client be
 
 	ctx := ctxtool.FromCanceller(inputCtx.Cancelation)
 	a.logger.Debugf("Starting fetch...")
-	if _, err = a.doFetch(ctx, state); err != nil {
+	if _, err := a.doFetch(ctx, state); err != nil {
 		return err
 	}
 
@@ -174,7 +178,6 @@ func (a *azure) runIncrementalUpdate(inputCtx v2.Context, store *kvstore.Store, 
 				a.logger.Warnf("Unable to lookup user %q", id, u.ID)
 				return
 			}
-
 			a.publishUser(u, state, inputCtx.ID, client, tracker)
 		})
 
@@ -223,7 +226,7 @@ func (a *azure) doFetch(ctx context.Context, state *stateStore) (*collections.Se
 		state.relationships.AddVertex(g.ID)
 		for _, member := range g.Members {
 			switch member.Type {
-			case MemberGroup:
+			case fetcher.MemberGroup:
 				for _, u := range state.users {
 					if u.IsTransitiveMemberOf(member.ID) {
 						updatedUsers.Add(u.ID)
@@ -235,7 +238,7 @@ func (a *azure) doFetch(ctx context.Context, state *stateStore) (*collections.Se
 					state.relationships.AddEdge(member.ID, g.ID)
 				}
 
-			case MemberUser:
+			case fetcher.MemberUser:
 				if u, ok := state.users[member.ID]; ok {
 					updatedUsers.Add(u.ID)
 					if member.Deleted {
@@ -265,7 +268,7 @@ func (a *azure) doFetch(ctx context.Context, state *stateStore) (*collections.Se
 	return updatedUsers, nil
 }
 
-func (a *azure) publishUser(u *User, state *stateStore, inputID string, client beat.Client, tracker *kvstore.TxTracker) {
+func (a *azure) publishUser(u *fetcher.User, state *stateStore, inputID string, client beat.Client, tracker *kvstore.TxTracker) {
 	userDoc := mapstr.M{}
 
 	_, _ = userDoc.Put("azure_ad", u.Fields)
@@ -278,20 +281,18 @@ func (a *azure) publishUser(u *User, state *stateStore, inputID string, client b
 
 	if u.Deleted {
 		_, _ = userDoc.Put("event.action", "user-deleted")
-	} else if u.Added {
-		_, _ = userDoc.Put("event.action", "user-added") // TODO: This doesn't clearly distinguish a newly discovered user versus a user that was added
 	} else if u.Modified {
 		_, _ = userDoc.Put("event.action", "user-modified")
 	}
 
-	var groups []groupECS
+	var groups []fetcher.GroupECS
 	u.TransitiveMemberOf.ForEach(func(groupID uuid.UUID) {
 		g, ok := state.groups[groupID]
 		if !ok {
 			a.logger.Warnf("Unable to lookup group %q for user %q", groupID, u.ID)
 			return
 		}
-		groups = append(groups, g.toECS())
+		groups = append(groups, g.ToECS())
 	})
 	if len(groups) > 0 {
 		_, _ = userDoc.Put("user.group", groups)
@@ -316,7 +317,7 @@ func configure(cfg *config.C) (kvstore.Input, []kvstore.Source, error) {
 	var sources []kvstore.Source
 	sources = append(sources, &stream{tenantID: c.TenantID})
 
-	return &azure{conf: c}, sources, nil
+	return &azure{rawConf: cfg, conf: c}, sources, nil
 }
 
 // Plugin describes the type of this input.

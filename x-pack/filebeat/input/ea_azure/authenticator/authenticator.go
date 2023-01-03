@@ -1,4 +1,4 @@
-package ea_azure
+package authenticator
 
 import "context"
 

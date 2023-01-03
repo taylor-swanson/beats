@@ -1,4 +1,4 @@
-package ea_azure
+package fetcher
 
 import "github.com/google/uuid"
 
@@ -22,13 +22,13 @@ type Member struct {
 	Deleted bool
 }
 
-type groupECS struct {
+type GroupECS struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
-func (g *Group) toECS() groupECS {
-	return groupECS{
+func (g *Group) ToECS() GroupECS {
+	return GroupECS{
 		ID:   g.ID.String(),
 		Name: g.Name,
 	}

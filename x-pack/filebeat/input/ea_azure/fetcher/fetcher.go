@@ -1,4 +1,4 @@
-package ea_azure
+package fetcher
 
 import "context"
 

@@ -1,9 +1,10 @@
-package ea_azure
+package oauth2
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/elastic/beats/v7/x-pack/filebeat/input/ea_azure/authenticator"
 	"io"
 	"net/http"
 	"net/url"
@@ -40,7 +41,7 @@ type oauth2Conf struct {
 	Transport httpcommon.HTTPTransportSettings `config:",inline"`
 }
 
-type authOAuth2 struct {
+type oauth2 struct {
 	conf    oauth2Conf
 	token   string
 	expires time.Time
@@ -48,7 +49,7 @@ type authOAuth2 struct {
 	client  *http.Client
 }
 
-func (a *authOAuth2) renewToken(ctx context.Context) error {
+func (a *oauth2) renewToken(ctx context.Context) error {
 	endpointURL, err := url.Parse(a.conf.Endpoint + "/" + a.conf.TenantID + "/oauth2/v2.0/token")
 	if err != nil {
 		return fmt.Errorf("unable to parse URL: %w", err)
@@ -93,7 +94,7 @@ func (a *authOAuth2) renewToken(ctx context.Context) error {
 	return nil
 }
 
-func (a *authOAuth2) Token(ctx context.Context) (string, error) {
+func (a *oauth2) Token(ctx context.Context) (string, error) {
 	if time.Now().Before(a.expires) && a.token != "" {
 		a.logger.Debug("Retrieving cached token")
 		return a.token, nil
@@ -107,7 +108,7 @@ func (a *authOAuth2) Token(ctx context.Context) (string, error) {
 	return a.token, nil
 }
 
-func newAuthOAuth2(cfg *config.C, logger *logp.Logger) (Authenticator, error) {
+func New(cfg *config.C, logger *logp.Logger) (authenticator.Authenticator, error) {
 	var c oauth2Conf
 	if err := cfg.Unpack(&c); err != nil {
 		return nil, fmt.Errorf("unable to unpack OAuth2 Authenticator config: %w", err)
@@ -118,7 +119,7 @@ func newAuthOAuth2(cfg *config.C, logger *logp.Logger) (Authenticator, error) {
 		return nil, fmt.Errorf("unable to create HTTP client: %w", err)
 	}
 
-	a := authOAuth2{
+	a := oauth2{
 		conf:   c,
 		logger: logger,
 		client: client,

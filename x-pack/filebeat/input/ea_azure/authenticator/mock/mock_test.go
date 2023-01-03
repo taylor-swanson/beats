@@ -1,4 +1,4 @@
-package ea_azure
+package mock
 
 import (
 	"context"
@@ -26,7 +26,7 @@ func TestMock_Token(t *testing.T) {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			a := newAuthMock(tc.InToken)
+			a := New(tc.InToken)
 
 			got, gotErr := a.Token(context.Background())
 

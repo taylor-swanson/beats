@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/elastic/beats/v7/x-pack/filebeat/input/ea_azure/fetcher"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,8 +33,8 @@ type stateStore struct {
 	lastUpdate    time.Time
 	usersLink     string
 	groupsLink    string
-	users         map[uuid.UUID]*User
-	groups        map[uuid.UUID]*Group
+	users         map[uuid.UUID]*fetcher.User
+	groups        map[uuid.UUID]*fetcher.Group
 	relationships *collections.Tree[uuid.UUID]
 }
 
@@ -44,8 +45,8 @@ func newStateStore(store *kvstore.Store) (*stateStore, error) {
 	}
 
 	s := stateStore{
-		users:         map[uuid.UUID]*User{},
-		groups:        map[uuid.UUID]*Group{},
+		users:         map[uuid.UUID]*fetcher.User{},
+		groups:        map[uuid.UUID]*fetcher.Group{},
 		relationships: collections.NewTree[uuid.UUID](),
 		tx:            tx,
 	}
@@ -64,7 +65,7 @@ func newStateStore(store *kvstore.Store) (*stateStore, error) {
 	}
 
 	if err = s.tx.ForEach(usersBucket, func(key, value []byte) error {
-		var u User
+		var u fetcher.User
 		if err = json.Unmarshal(value, &u); err != nil {
 			return fmt.Errorf("unable to unmarshal user from state: %w", err)
 		}
@@ -76,7 +77,7 @@ func newStateStore(store *kvstore.Store) (*stateStore, error) {
 	}
 
 	if err = s.tx.ForEach(groupsBucket, func(key, value []byte) error {
-		var g Group
+		var g fetcher.Group
 		if err = json.Unmarshal(value, &g); err != nil {
 			return fmt.Errorf("unable to unmarshal group from state: %w", err)
 		}
@@ -94,18 +95,16 @@ func newStateStore(store *kvstore.Store) (*stateStore, error) {
 	return &s, nil
 }
 
-func (s *stateStore) storeUser(u *User) {
+func (s *stateStore) storeUser(u *fetcher.User) {
 	if existing, ok := s.users[u.ID]; ok {
 		u.Modified = true
 		existing.Merge(u)
 	} else {
-		u.Added = true
 		s.users[u.ID] = u
-
 	}
 }
 
-func (s *stateStore) storeGroup(g *Group) {
+func (s *stateStore) storeGroup(g *fetcher.Group) {
 	s.groups[g.ID] = g
 }
 

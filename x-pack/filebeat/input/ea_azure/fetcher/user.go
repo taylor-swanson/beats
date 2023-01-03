@@ -1,8 +1,6 @@
-package ea_azure
+package fetcher
 
 import (
-	"time"
-
 	"github.com/elastic/elastic-agent-libs/mapstr"
 	"github.com/google/uuid"
 
@@ -14,9 +12,7 @@ type User struct {
 	Fields             mapstr.M                    `json:"fields"`
 	MemberOf           *collections.Set[uuid.UUID] `json:"memberOf"`
 	TransitiveMemberOf *collections.Set[uuid.UUID] `json:"transitiveMemberOf"`
-	LastSent           time.Time                   `json:"lastSent"` // TODO: Reserved for future use.
-	Modified           bool                        `json:"-"`        // TODO: Reserved for future use.
-	Added              bool                        `json:"-"`
+	Modified           bool                        `json:"-"`
 	Deleted            bool                        `json:"deleted"`
 }
 
