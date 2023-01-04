@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/elastic/beats/v7/x-pack/filebeat/input/ea_azure/fetcher"
 	"io"
 	"net/http"
 	"net/url"
@@ -17,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/elastic/beats/v7/x-pack/filebeat/input/ea_azure/authenticator"
+	"github.com/elastic/beats/v7/x-pack/filebeat/input/ea_azure/fetcher"
 )
 
 const (
@@ -62,7 +62,7 @@ type graphConf struct {
 	Transport httpcommon.HTTPTransportSettings `config:",inline"`
 }
 
-type fetcherGraph struct {
+type graph struct {
 	conf   graphConf
 	client *http.Client
 	logger *logp.Logger
@@ -72,7 +72,7 @@ type fetcherGraph struct {
 	groupsURL string
 }
 
-func (f *fetcherGraph) Groups(ctx context.Context, deltaLink string) ([]*fetcher.Group, string, error) {
+func (f *graph) Groups(ctx context.Context, deltaLink string) ([]*fetcher.Group, string, error) {
 	type apiResponse struct {
 		NextLink  string     `json:"@odata.nextLink"`
 		DeltaLink string     `json:"@odata.deltaLink"`
@@ -119,7 +119,7 @@ func (f *fetcherGraph) Groups(ctx context.Context, deltaLink string) ([]*fetcher
 	}
 }
 
-func (f *fetcherGraph) Users(ctx context.Context, deltaLink string) ([]*fetcher.User, string, error) {
+func (f *graph) Users(ctx context.Context, deltaLink string) ([]*fetcher.User, string, error) {
 	var users []*fetcher.User
 
 	type apiResponse struct {
@@ -172,7 +172,7 @@ func (f *fetcherGraph) Users(ctx context.Context, deltaLink string) ([]*fetcher.
 	}
 }
 
-func (f *fetcherGraph) doRequest(ctx context.Context, method, url string, body io.Reader) (io.ReadCloser, error) {
+func (f *graph) doRequest(ctx context.Context, method, url string, body io.Reader) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request: %w", err)
@@ -210,7 +210,7 @@ func New(cfg *config.C, logger *logp.Logger, auth authenticator.Authenticator) (
 		return nil, fmt.Errorf("unable to create HTTP client: %w", err)
 	}
 
-	f := fetcherGraph{
+	f := graph{
 		conf:   c,
 		logger: logger,
 		auth:   auth,
