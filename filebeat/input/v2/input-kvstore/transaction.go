@@ -15,8 +15,6 @@ var (
 	ErrBucketNotFound = errors.New("kvstore: bucket not found")
 	// ErrKeyNotFound is an error indicating a key was not found.
 	ErrKeyNotFound = errors.New("kvstore: key not found")
-	// ErrTransactionClosed is an error indicating the transaction has been closed.
-	ErrTransactionClosed = errors.New("kvstore: transaction closed")
 )
 
 // Transaction represents a transaction on the key/value store. In the case of
@@ -126,7 +124,7 @@ func (t *Transaction) Delete(bucket, key []byte) error {
 }
 
 // Commit will write any changes to disk. For read-only transactions, calling
-// commit will route to rollback.
+// Commit will route to Rollback.
 func (t *Transaction) Commit() error {
 	if !t.closed.CAS(false, true) {
 		return nil

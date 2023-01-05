@@ -64,7 +64,7 @@ func (a *azure) Run(inputCtx v2.Context, source kvstore.Source, store *kvstore.S
 
 	// Configure initial timers.
 	lastSyncTime, _ := getLastSync(store)
-	lastUpdateTime, _ := getLastSync(store)
+	lastUpdateTime, _ := getLastUpdate(store)
 	syncWaitTime := computeWaitTime(lastSyncTime, a.conf.SyncInterval)
 	updateWaitTime := computeWaitTime(lastUpdateTime, a.conf.UpdateInterval)
 

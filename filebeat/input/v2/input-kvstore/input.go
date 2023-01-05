@@ -17,6 +17,10 @@ import (
 	"github.com/elastic/beats/v7/libbeat/beat"
 )
 
+type Source interface {
+	Name() string
+}
+
 type Input interface {
 	Name() string
 	Test(testCtx v2.TestContext, source Source) error

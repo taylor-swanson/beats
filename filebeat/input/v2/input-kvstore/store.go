@@ -2,7 +2,6 @@ package kvstore
 
 import (
 	"fmt"
-	"github.com/urso/sderr"
 	"os"
 
 	"github.com/elastic/elastic-agent-libs/logp"
@@ -58,6 +57,9 @@ func (s *Store) RunTransaction(writable bool, fn func(tx *Transaction) error) (e
 	return err
 }
 
+// BeginTx begins a database transaction. If writable is true, then a read/write
+// transaction is started, otherwise the transaction will be read-only. Only one
+// writable transaction is allowed to be inflight at one time.
 func (s *Store) BeginTx(writable bool) (*Transaction, error) {
 	var t Transaction
 	var err error
@@ -90,27 +92,4 @@ func NewStore(logger *logp.Logger, filename string, perm os.FileMode) (*Store, e
 	s.logger.Infof("Created new store at %q", filename)
 
 	return &s, nil
-}
-
-func txCommit(tx *Transaction, err error) error {
-	if r := recover(); r != nil {
-		if e, ok := r.(error); ok {
-			err = fmt.Errorf("kvstore transaction: recovered panic: %w", e)
-		} else {
-			err = fmt.Errorf("kvstore transaction: recovered panic: %v", r)
-		}
-		_ = tx.Rollback()
-		return err
-	}
-	if err != nil {
-		if txErr := tx.Rollback(); txErr != nil {
-			err = sderr.WrapAll([]error{err, txErr}, "error during transaction and rollback")
-		}
-	} else {
-		if txErr := tx.Commit(); txErr != nil {
-			err = fmt.Errorf("transaction commit: %w", err)
-		}
-	}
-
-	return err
 }
