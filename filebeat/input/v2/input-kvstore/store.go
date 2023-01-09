@@ -57,7 +57,8 @@ func (s *Store) RunTransaction(writable bool, fn func(tx *Transaction) error) (e
 
 // BeginTx begins a database transaction. If writable is true, then a read/write
 // transaction is started, otherwise the transaction will be read-only. Only one
-// writable transaction is allowed to be inflight at one time.
+// writable transaction is allowed to be inflight at one time. The caller is
+// responsible for closing out the transaction by either calling Commit or Rollback.
 func (s *Store) BeginTx(writable bool) (*Transaction, error) {
 	var t Transaction
 	var err error

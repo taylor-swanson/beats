@@ -19,16 +19,14 @@ import (
 	"github.com/elastic/beats/v7/libbeat/beat"
 )
 
-// Source describe a source the input can collect data from.
-// The `Name` method must return a unique name, that will be
+// Source describes a source the input can collect data from.
+// The `Name` method must return a unique name that will be
 // used to identify the source.
 type Source interface {
 	Name() string
 }
 
-// Input interface for cursor based inputs. This interface must be implemented
-// by inputs that with to use the InputManager in order to implement a stateful
-// input that can store state between restarts.
+// Input defines an interface for kvstore-based inputs.
 type Input interface {
 	// Name reports the input name.
 	Name() string
@@ -133,10 +131,7 @@ func (n *input) runSource(inputCtx v2.Context, source Source, connector beat.Pip
 		ACKHandler: NewTxACKHandler(),
 	})
 
-	// TODO: Get data directory.
-	dataDir := paths.Resolve(paths.Data, "kvstore/filebeat")
-	fmt.Printf("Data dir is: %s\n", dataDir)
-
+	dataDir := paths.Resolve(paths.Data, "kvstore")
 	if err = os.MkdirAll(dataDir, 0700); err != nil {
 		return fmt.Errorf("kvstore: unable to make data directory: %w", err)
 	}

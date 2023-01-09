@@ -19,8 +19,8 @@ var (
 
 // Transaction represents a transaction on the key/value store. In the case of
 // a write transaction, any changes made are held in memory. Only on a commit
-// are changes written to disk. There can only be one write transaction open
-// at any given time. Subsequent write transactions are blocked until the current
+// will changes be written to disk. There can only be one write transaction open
+// at any given time. Subsequent transactions are blocked until the current
 // transaction is closed. There can be any number of read-only transactions open
 // at any given time.
 type Transaction struct {
@@ -46,9 +46,7 @@ func (t *Transaction) GetBytes(bucket, key []byte) ([]byte, error) {
 }
 
 // Get will get the data at key in bucket and will attempt to decode the data
-// into value. The decoding method is defined by encoding/gob package. If a
-// Decoder interface is passed in as value, then the Decoder's Decode function
-// will be used to handle decoding.
+// into value. The decoding method is JSON.
 func (t *Transaction) Get(bucket, key []byte, value any) error {
 	data, err := t.GetBytes(bucket, key)
 	if err != nil {
@@ -79,7 +77,7 @@ func (t *Transaction) ForEach(bucket []byte, fn func(key, value []byte) error) e
 }
 
 // SetBytes will set the value of key in bucket. If the key or bucket do not
-// already exist, they will be automatically created.
+// exist, they will be automatically created.
 func (t *Transaction) SetBytes(bucket, key, value []byte) error {
 	var b *bbolt.Bucket
 	var err error
@@ -95,9 +93,7 @@ func (t *Transaction) SetBytes(bucket, key, value []byte) error {
 }
 
 // Set will set the data at key in bucket using the encoded representation of
-// value. The encoding method is defined by the encoding/gob package. If an
-// Encoder interface is passed in as value, then the Encoder's Encode function
-// will be used to handle encoding.
+// value. The encoding method is JSON.
 func (t *Transaction) Set(bucket, key []byte, value any) error {
 	data, err := json.Marshal(&value)
 	if err != nil {
