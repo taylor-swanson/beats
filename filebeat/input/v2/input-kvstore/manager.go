@@ -55,9 +55,9 @@ func (m *Manager) Create(c *config.C) (v2.Input, error) {
 	}
 
 	return &input{
-		id:      settings.ID,
-		manager: m,
-		sources: sources,
-		input:   inp,
+		id:           settings.ID,
+		manager:      m,
+		sources:      sources,
+		managedInput: inp,
 	}, nil
 }

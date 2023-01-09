@@ -2,18 +2,34 @@ package kvstore
 
 import (
 	"context"
+	"testing"
+
 	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestTxTracker_Ack(t *testing.T) {
+	txTracker := NewTxTracker(context.Background())
+	txTracker.pending.Inc()
+
+	txTracker.Ack()
+
+	assert.ErrorIs(t, txTracker.ctx.Err(), context.Canceled)
 }
 
 func TestTxTracker_Add(t *testing.T) {
+	txTracker := NewTxTracker(context.Background())
+
+	assert.Equal(t, 0, txTracker.pending.Load())
+	txTracker.Add()
+	assert.Equal(t, 1, txTracker.pending.Load())
 }
 
 func TestTxTracker_Wait(t *testing.T) {
+	txTracker := NewTxTracker(context.Background())
+	txTracker.Wait()
+
+	assert.ErrorIs(t, txTracker.ctx.Err(), context.Canceled)
 }
 
 func TestTxACKHandler(t *testing.T) {

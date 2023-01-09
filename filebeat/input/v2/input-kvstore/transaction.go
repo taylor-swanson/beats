@@ -56,7 +56,7 @@ func (t *Transaction) Get(bucket, key []byte, value any) error {
 	}
 
 	if err = json.Unmarshal(data, &value); err != nil {
-		return err
+		return fmt.Errorf("kvstore: json unmarshal error: %w", err)
 	}
 
 	return err
@@ -80,12 +80,12 @@ func (t *Transaction) ForEach(bucket []byte, fn func(key, value []byte) error) e
 
 // SetBytes will set the value of key in bucket. If the key or bucket do not
 // already exist, they will be automatically created.
-func (t *Transaction) SetBytes(bucket, key []byte, value []byte) error {
+func (t *Transaction) SetBytes(bucket, key, value []byte) error {
 	var b *bbolt.Bucket
 	var err error
 
 	if b, err = t.tx.CreateBucketIfNotExists(bucket); err != nil {
-		return fmt.Errorf("kvstore: get bucket: %w", err)
+		return fmt.Errorf("kvstore: create/get bucket: %w", err)
 	}
 	if err = b.Put(key, value); err != nil {
 		return fmt.Errorf("kvstore: put value: %w", err)
@@ -101,7 +101,7 @@ func (t *Transaction) SetBytes(bucket, key []byte, value []byte) error {
 func (t *Transaction) Set(bucket, key []byte, value any) error {
 	data, err := json.Marshal(&value)
 	if err != nil {
-		return err
+		return fmt.Errorf("kvstore: json marshal error: %w", err)
 	}
 
 	return t.SetBytes(bucket, key, data)

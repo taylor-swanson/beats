@@ -3,7 +3,6 @@ package kvstore
 import (
 	"errors"
 	v2 "github.com/elastic/beats/v7/filebeat/input/v2"
-	"github.com/elastic/beats/v7/libbeat/beat"
 	"github.com/elastic/elastic-agent-libs/config"
 	"github.com/elastic/elastic-agent-libs/logp"
 	"github.com/elastic/go-concert/unison"
@@ -11,28 +10,6 @@ import (
 
 	"testing"
 )
-
-type testSource string
-
-func (s testSource) Name() string {
-	return string(s)
-}
-
-var _ Input = &testInput{}
-
-type testInput struct{}
-
-func (t testInput) Name() string {
-	return "testInput"
-}
-
-func (t testInput) Test(testCtx v2.TestContext, source Source) error {
-	return nil
-}
-
-func (t testInput) Run(inputCtx v2.Context, source Source, store *Store, client beat.Client) error {
-	return nil
-}
 
 func configureOkay() func(cfg *config.C) (Input, []Source, error) {
 	sources := []Source{

@@ -52,9 +52,7 @@ func (s *Store) RunTransaction(writable bool, fn func(tx *Transaction) error) (e
 		}
 	}()
 
-	err = fn(&t)
-
-	return err
+	return fn(&t)
 }
 
 // BeginTx begins a database transaction. If writable is true, then a read/write
