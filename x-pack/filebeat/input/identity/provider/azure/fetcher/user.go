@@ -32,7 +32,7 @@ func (u *User) Merge(other *User) {
 	u.Deleted = other.Deleted
 }
 
-func (u *User) IsDirectMemberOf(value uuid.UUID) bool {
+func (u *User) IsMemberOf(value uuid.UUID) bool {
 	if u.MemberOf != nil {
 		return u.MemberOf.Has(value)
 	}

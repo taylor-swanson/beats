@@ -17,8 +17,7 @@ func (a *mock) Token(ctx context.Context) (string, error) {
 	return a.tokenValue, nil
 }
 
-func (a *mock) SetLogger(_ *logp.Logger) {
-}
+func (a *mock) SetLogger(_ *logp.Logger) {}
 
 func New(tokenValue string) authenticator.Authenticator {
 	if tokenValue == "" {
