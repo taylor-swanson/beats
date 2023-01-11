@@ -22,21 +22,21 @@ type testInput struct {
 	runFn  func(runCtx v2.Context, store *Store, client beat.Client) error
 }
 
-func (t testInput) Name() string {
-	return t.name
+func (n *testInput) Name() string {
+	return n.name
 }
 
-func (t testInput) Test(testCtx v2.TestContext) error {
-	if t.testFn != nil {
-		return t.testFn(testCtx)
+func (n *testInput) Test(testCtx v2.TestContext) error {
+	if n.testFn != nil {
+		return n.testFn(testCtx)
 	}
 
 	return nil
 }
 
-func (t testInput) Run(inputCtx v2.Context, store *Store, client beat.Client) error {
-	if t.runFn != nil {
-		return t.runFn(inputCtx, store, client)
+func (n *testInput) Run(runCtx v2.Context, store *Store, client beat.Client) error {
+	if n.runFn != nil {
+		return n.runFn(runCtx, store, client)
 	}
 
 	return nil

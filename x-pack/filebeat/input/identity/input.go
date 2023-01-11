@@ -29,6 +29,7 @@ func Plugin(logger *logp.Logger) v2.Plugin {
 	}
 }
 
+// manager implements the v2.InputManager interface.
 var _ v2.InputManager = &manager{}
 
 type manager struct {
@@ -36,10 +37,14 @@ type manager struct {
 	provider provider.Provider
 }
 
+// Init is not used for this input. It is called before Create and no provider
+// has been configured yet.
 func (m *manager) Init(grp unison.Group, mode v2.Mode) error {
-	return m.provider.Init(grp, mode)
+	return nil
 }
 
+// Create will unpack the provided configuration and set up the identity provider
+// for this input.
 func (m *manager) Create(cfg *config.C) (v2.Input, error) {
 	var c conf
 	if err := cfg.Unpack(&c); err != nil {
